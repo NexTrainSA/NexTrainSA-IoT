@@ -1,71 +1,21 @@
-// Bibliotecas:
-#include <ESP32Servo.h>
+#include <Wifi.h>
 
-
-// Definição de variáveis:
-
-// LEDs:
-const byte ledVerde = 2;
-const byte ledVermelho = 4;
-
-// Para o sensor:
-const byte echoPin = 35;
-const byte triggPin = 27;
-float distancia = 0;
-unsigned long tempo = 0;
-
-// Para o botão:
-const byte botao = 18;
+WifiClient client;
+const String SSID = "Nome da rede";
+const String PASS = "Senha da rede";
 
 void setup() {
-  // Setup para o sensor:
-  pinMode(echoPin, INPUT);
-  pinMode(triggPin, OUTPUT);
+  Serial.begin(115200);
+  client.begin(SSID, PASS); 
+  Serial.println("Conectando...");
 
-  // LEDs:
-  pinMode (ledVerde, OUTPUT);
-  pinMode (ledVermelho, OUTPUT);
-
-  // Botão:
-  pinMode(botao, INPUT_PULLUP);
-
-  Serial.begin(9600);
+  while(client.status() != WL_CONNECTED) { // Ou seja, não está conectado
+    Serial.print("...");
+    delay(200);
+  }
 }
-
 
 void loop() {
-  // Ler botão:
-  bool botaoSimNao = lerBotao();
-  controlarBotao(botaoSimNao);  
-}
+  // put your main code here, to run repeatedly:
 
-bool lerBotao() {
-  return digitalRead(botao) == LOW; // LOW para botão pressionado
-}
-
-void controlarBotao(bool estadoBotao) {
-  if (estadoBotao) {
-    // Serial.println(estadoBotao);
-    digitalWrite(ledVerde, HIGH);
-     // Medir distância:
-    // Envia som:
-    digitalWrite(triggPin, HIGH);
-    delayMicroseconds(10);
-    digitalWrite(triggPin, LOW);
-
-    // Volta som:
-    tempo = pulseIn(echoPin, HIGH);
-    distancia = (tempo * 0.0343) / 2;
-    Serial.println(distancia);
-
-    if (distancia < 50) {
-      digitalWrite(ledVerde, LOW);
-      digitalWrite(ledVermelho, HIGH);
-      delay(200);
-      digitalWrite(ledVermelho, LOW);
-      delay(200);
-    } 
-  } else {
-    digitalWrite(ledVerde, LOW);
-  }
 }
