@@ -4,6 +4,8 @@
 WiFiClient wifiClient;
 PubSubClient mqtt(wifiClient);
 
+const int pino = 2;
+
 const String SSID = "FIESC_IOT_EDU";
 const String PASS = "8120gv08";
 
@@ -17,6 +19,9 @@ const String brokerPass = "";
 
 void setup() {
   Serial.begin(115200);
+
+  pinMode(pino, OUTPUT);
+
   WiFi.begin(SSID, PASS);  // Tenta conectar na Internet
   Serial.println("Conectando à Internet...");
 
@@ -24,6 +29,7 @@ void setup() {
     Serial.print("...");
     delay(200);
   }
+
   Serial.println("Conectado à Internet!");
 
   // Comunicação com broker:
@@ -42,11 +48,15 @@ void setup() {
   mqtt.setCallback(callback);
   // Fim da inscrição
 
+    Serial.println("...");
+      delay(200);
+
   Serial.println("\nConectado ao Broker!");
   // Fim do código da conexão com Broker
 }
 
 void loop() {
+
   // Publicar:
   String mensagem = ""; // Variável a ser zerada/recriada toda vez (só dentro do loop)
   if (Serial.available() >  0) {
@@ -65,4 +75,7 @@ void callback (char* topic, byte* payload, unsigned long length) { // Argumentos
     mensagemRecebida += (char) payload[i]; // Juntas as letras do payload na mensagem
   }
   Serial.println(mensagemRecebida);
+  if (mensagemRecebida == "LIGAR" || "ligar") {
+    digitalWrite(pino, HIGH);
+  }
 }
