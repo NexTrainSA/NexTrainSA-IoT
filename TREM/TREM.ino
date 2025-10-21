@@ -1,28 +1,20 @@
 #include <WiFi.h>
 #include <PubSubClient.h>
+#include <"env.h"> // Aspas para indicar que é arquivo local
 
 WiFiClient wifiClient;
 PubSubClient mqtt(wifiClient);
 
 const int pino = 2;
 
-const String SSID = "FIESC_IOT_EDU";
-const String PASS = "8120gv08";
-
-const String brokerURL = "test.mosquitto.org";
-const int brokerPort = 1883;
-
 const String topic = "topicoTrem"; // Criação de tópico próprio
-
-const String brokerUser = "";
-const String brokerPass = "";
 
 void setup() {
   Serial.begin(115200);
 
   pinMode(pino, OUTPUT);
 
-  WiFi.begin(SSID, PASS);  // Tenta conectar na Internet
+  WiFi.begin(WIFI_SSID, WIFI_PASS);  // Tenta conectar na Internet
   Serial.println("Conectando à Internet...");
 
   while (WiFi.status() != WL_CONNECTED) {  // Ou seja, não está conectado
@@ -33,7 +25,7 @@ void setup() {
   Serial.println("Conectado à Internet!");
 
   // Comunicação com broker:
-  mqtt.setServer(brokerURL.c_str(), brokerPort);  // Definindo servidor
+  mqtt.setServer(BROKER_URL.c_str(), BROKER_PORT);  // Definindo servidor
   String clientID = "TREM-";
   clientID += String(random(0xffff), HEX);  // Forma texto aleatório para acompanhar o clientID
   Serial.println("Conectando ao Broker...");
