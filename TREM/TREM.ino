@@ -1,23 +1,26 @@
 #include <WiFi.h>
 #include <PubSubClient.h>
-#include <"env.h"> // Aspas para indicar que é arquivo local
+#include <WifiClientSecure.h>
+#include <"env.h">
+#include <stdio.h> // Por causa da função sscanf
 
-WiFiClient wifiClient;
+WifiClientSecure wifiClient;
 PubSubClient mqtt(wifiClient);
 
-const int pino = 2;
-
-const String topic = "topicoTrem"; // Criação de tópico próprio
+const byte verdinho = ;
+const byte vermelhinho = ;
+const byte azulzinho = ;
 
 void setup() {
   Serial.begin(115200);
+  wifiClient.setInsecure();
 
   pinMode(pino, OUTPUT);
 
-  WiFi.begin(WIFI_SSID, WIFI_PASS);  // Tenta conectar na Internet
+  WiFi.begin(WIFI_SSID, WIFI_PASS);
   Serial.println("Conectando à Internet...");
 
-  while (WiFi.status() != WL_CONNECTED) {  // Ou seja, não está conectado
+  while (WiFi.status() != WL_CONNECTED) {
     Serial.print("...");
     delay(200);
   }
@@ -25,18 +28,19 @@ void setup() {
   Serial.println("Conectado à Internet!");
 
   // Comunicação com broker:
-  mqtt.setServer(BROKER_URL.c_str(), BROKER_PORT);  // Definindo servidor
+  mqtt.setServer(BROKER_URL.c_str(), BROKER_PORT);  
   String clientID = "TREM-";
-  clientID += String(random(0xffff), HEX);  // Forma texto aleatório para acompanhar o clientID
+  clientID += String(random(0xffff), HEX); 
   Serial.println("Conectando ao Broker...");
 
   // Começando comunicação:
-  while (mqtt.connect(clientID.c_str()) == 0) { // Enquanto não conectar:
+  while (mqtt.connect(clientID.c_str()) == 0) {
     Serial.println(".");
       delay(2000);
   }
+
   // Inscrição:
-  mqtt.subscribe(topic.c_str());
+  mqtt.subscribe(TOPIC_SPEED);
   mqtt.setCallback(callback);
   // Fim da inscrição
 
@@ -50,24 +54,54 @@ void setup() {
 void loop() {
 
   // Publicar:
-  String mensagem = ""; // Variável a ser zerada/recriada toda vez (só dentro do loop)
+  String mensagem = ""; 
   if (Serial.available() >  0) {
     mensagem = Serial.readStringUntil('\n');
     mensagem = "Fernanda: " + mensagem;
     // Mandar msg para o broker:
-    mqtt.publish("topico_S2", mensagem.c_str()); // Nome do broker.publish("Tópico", mensagem.c_str());
+    mqtt.publish(TOPIC_RGB_4, mensagem.c_str()); 
   }
   mqtt.loop();
   // Fim da parte de Publicar
 }
 
-void callback (char* topic, byte* payload, unsigned long length) { // Argumentos padrões: de onde veio, a mensagem em si e o tamanho em bytes
+void callback (char* topic, char* payload, unsigned long length) { 
+  // Pesquisar como converter o payload para int, pois a velocidade é um número inteiro
+  // Mudar essa parte de baixo aqui ⬇️⬇️⬇️
+
+  char* payload = "";
+  int valor;
+  if (sscanf(payload, "%d", &valor) == 1) {
+        // Aí deu certo
+  } else {
+        Serial.println("Acho que deu ruim.");
+    }
+
   String mensagemRecebida = "";
   for (int i = 0; i < length; i++) {
-    mensagemRecebida += (char) payload[i]; // Juntas as letras do payload na mensagem
+    msg += (byte) payload[i]; 
   }
-  Serial.println(mensagemRecebida);
-  if (mensagemRecebida == "LIGAR" || "ligar") {
-    digitalWrite(pino, HIGH);
+  Serial.println(msg);
+
+  if(topic == "NexTrain/TREM/Atuadores/SPEED"){
+    if(msg > 0) {
+      digitalWrite(dir1, HIGH);
+      digitalWrite(dir2, LOW);
+      digitalWrite(verdinho, HIGH);
+      digitalWrite(vermelhinho, LOW);
+      digitalWrite(azulzinho, LOW);
+    } else if(msg < 0) {
+        digitalWrite(dir1, LOW);
+        digitalWrite(dir2, HIGH);
+        digitalWrite(azulzinho, HIGH);
+        digitalWrite(verdinho, LOW);
+        digitalWrite(vermelhinho, LOW);
+    } else {
+      digitalWrite(dir1, LOW);
+      digitalWrite(dir2, LOW);
+      digitalWrite(vermelhinho, HIGH);
+      digitalWrite(verdinho, LOW);
+      digitalWrite(azulzinho, LOW);
+    }
   }
 }
