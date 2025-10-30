@@ -1,20 +1,25 @@
 #include <WiFi.h>
 #include <PubSubClient.h>
-#include "env.h"
+#include <WiFiClientSecure.h>
 
-
-WiFiClient wifi_client;
-PubSubClient mqtt(wifi_client);
+WiFiClientSecure wifiClient;
+PubSubClient mqtt(wifiClient);
 
 const int pino = 2;
 
 const String topic = "topico_S2";
 
 const String brokerUser = "";
+
+const String WIFI_SSID = "FIESC_IOT_EDU";
+const String WIFI_PASS = "senha";
+const String BROKER_URL = "179.155.211.130";
+const int BROKER_PORT = 6883;
 const String brokerPass = "";
 
 void setup() {
   Serial.begin(115200);
+  wifiClient.setInsecure();
   pinMode(pino, OUTPUT);
   WiFi.begin(WIFI_SSID, WIFI_PASS); //tenta conectar na rede
   Serial.println("Conectando no WiFi");
@@ -48,7 +53,7 @@ void loop() {
   mqtt.loop();
 }
 
-void callback(char* topic, byte* payload, unsigned long length) {
+void callback(char* topic, byte* payload, unsigned long length) { //Controlador de atuadores
   String MensagemRecebida = "";
     for(int i = 0; i < length; i++){
       //Pega cada letra de payload e junta na mensagem
