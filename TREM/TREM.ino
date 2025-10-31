@@ -17,11 +17,12 @@ void callback(char* topic, byte* payload, unsigned int length) {
   Serial.print("Mensagem recebida em ");
   Serial.println(topic);
 
+  // Acho que primeiro converte de byte para char... 
   String msg = "";
   for (int i = 0; i < length; i++) {
     msg += (char)payload[i];
   }
-
+  // ... e de char para int
   int valor = msg.toInt();
   Serial.print("Velocidade recebida: ");
   Serial.println(valor);
