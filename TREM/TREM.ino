@@ -1,101 +1,44 @@
 #include <WiFi.h>
+#include <WiFiClientSecure.h>
 #include <PubSubClient.h>
-#include <WifiClientSecure.h>
-#include <"env.h">
-#include <stdio.h> // Por causa da função sscanf
+#include "env.h"
 
-WifiClientSecure wifiClient;
+WiFiClientSecure wifiClient;
 PubSubClient mqtt(wifiClient);
 
-const byte verdinho = ;
-const byte vermelhinho = ;
-const byte azulzinho = ;
+const byte dir1 = 4;
+const byte dir2 = 5;
 
-void setup() {
-  Serial.begin(115200);
-  wifiClient.setInsecure();
+const byte verdinho = 14;
+const byte vermelhinho = 12;
+const byte azulzinho = 13;
 
-  pinMode(pino, OUTPUT);
+void callback(char* topic, byte* payload, unsigned int length) {
+  Serial.print("Mensagem recebida em ");
+  Serial.println(topic);
 
-  WiFi.begin(WIFI_SSID, WIFI_PASS);
-  Serial.println("Conectando à Internet...");
-
-  while (WiFi.status() != WL_CONNECTED) {
-    Serial.print("...");
-    delay(200);
-  }
-
-  Serial.println("Conectado à Internet!");
-
-  // Comunicação com broker:
-  mqtt.setServer(BROKER_URL.c_str(), BROKER_PORT);  
-  String clientID = "TREM-";
-  clientID += String(random(0xffff), HEX); 
-  Serial.println("Conectando ao Broker...");
-
-  // Começando comunicação:
-  while (mqtt.connect(clientID.c_str()) == 0) {
-    Serial.println(".");
-      delay(2000);
-  }
-
-  // Inscrição:
-  mqtt.subscribe(TOPIC_SPEED);
-  mqtt.setCallback(callback);
-  // Fim da inscrição
-
-    Serial.println("...");
-      delay(200);
-
-  Serial.println("\nConectado ao Broker!");
-  // Fim do código da conexão com Broker
-}
-
-void loop() {
-
-  // Publicar:
-  String mensagem = ""; 
-  if (Serial.available() >  0) {
-    mensagem = Serial.readStringUntil('\n');
-    mensagem = "Fernanda: " + mensagem;
-    // Mandar msg para o broker:
-    mqtt.publish(TOPIC_RGB_4, mensagem.c_str()); 
-  }
-  mqtt.loop();
-  // Fim da parte de Publicar
-}
-
-void callback (char* topic, char* payload, unsigned long length) { 
-  // Pesquisar como converter o payload para int, pois a velocidade é um número inteiro
-  // Mudar essa parte de baixo aqui ⬇️⬇️⬇️
-
-  char* payload = "";
-  int valor;
-  if (sscanf(payload, "%d", &valor) == 1) {
-        // Aí deu certo
-  } else {
-        Serial.println("Acho que deu ruim.");
-    }
-
-  String mensagemRecebida = "";
+  String msg = "";
   for (int i = 0; i < length; i++) {
-    msg += (byte) payload[i]; 
+    msg += (char)payload[i];
   }
-  Serial.println(msg);
 
-  if(topic == "NexTrain/TREM/Atuadores/SPEED"){
-    if(msg > 0) {
+  int valor = msg.toInt();
+  Serial.print("Velocidade recebida: ");
+  Serial.println(valor);
+
+  if (String(topic) == "NexTrain/TREM/Atuadores/SPEED") {
+    if (valor > 0) {
       digitalWrite(dir1, HIGH);
       digitalWrite(dir2, LOW);
       digitalWrite(verdinho, HIGH);
       digitalWrite(vermelhinho, LOW);
       digitalWrite(azulzinho, LOW);
-    } else if(msg < 0) {
-        digitalWrite(dir1, LOW);
-        digitalWrite(dir2, HIGH);
-        digitalWrite(azulzinho, HIGH);
-        digitalWrite(verdinho, LOW);
-        digitalWrite(vermelhinho, LOW);
+    } else if (valor < 0) {
+      digitalWrite(dir1, LOW);
+      digitalWrite(dir2, HIGH);
+      digitalWrite(azulzinho, HIGH);
+      digitalWrite(verdinho, LOW);
+      digitalWrite(vermelhinho, LOW);
     } else {
       digitalWrite(dir1, LOW);
       digitalWrite(dir2, LOW);
@@ -104,4 +47,53 @@ void callback (char* topic, char* payload, unsigned long length) {
       digitalWrite(azulzinho, LOW);
     }
   }
+}
+
+void setup() {
+  Serial.begin(115200);
+  wifiClient.setInsecure();
+
+  pinMode(verdinho, OUTPUT);
+  pinMode(vermelhinho, OUTPUT);
+  pinMode(azulzinho, OUTPUT);
+  pinMode(dir1, OUTPUT);
+  pinMode(dir2, OUTPUT);
+
+  WiFi.begin(WIFI_SSID, WIFI_PASS);
+  Serial.println("Conectando à Internet...");
+
+  while (WiFi.status() != WL_CONNECTED) {
+    Serial.print(".");
+    delay(200);
+  }
+
+  Serial.println("\nConectado à Internet!");
+
+  // Comunicação com broker:
+  mqtt.setServer(BROKER_URL, BROKER_PORT);
+  mqtt.setCallback(callback);
+
+  String clientID = "TREM-";
+  clientID += String(random(0xffff), HEX);
+  Serial.println("Conectando ao Broker...");
+
+  while (!mqtt.connected()) {
+    if (mqtt.connect(clientID.c_str())) {
+      Serial.println("\nConectado ao Broker!");
+      mqtt.subscribe(TOPIC_SPEED);
+    } else {
+      Serial.print(".");
+      delay(2000);
+    }
+  }
+}
+
+void loop() {
+  // Publicar:
+  if (Serial.available() > 0) {
+    String mensagem = Serial.readStringUntil('\n');
+    mqtt.publish(TOPIC_RGB_4, mensagem.c_str());
+  }
+
+  mqtt.loop();
 }
