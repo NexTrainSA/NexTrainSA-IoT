@@ -3,120 +3,144 @@
 #include <WiFiClientSecure.h>
 #include "env.h"
 
-
+// Conexão Wi-Fi e MQTT
 WiFiClientSecure wifiClient;
 PubSubClient mqtt(wifiClient);
 
-// Para fazer: Acender e apagar led, recebe mensagem; Sensor dentro do loop; Servo não precisa; Manda distância para o tópico; 
-
-// Pinos LED RGB:
+// === Pinos LED RGB ===
 const int redPin = 2;
 const int greenPin = 4;
 const int bluePin = 6;
 
+// === Sensores ultrassônicos ===
+const int trig1 = 18;
+const int echo1 = 19;
 
-// Sensor ultrassônico:
-const int trig1 = 4;   // sensor 1
-const int echo1 = 5;   // sensor 1
-const int trig2 = 18;  // sensor 2
-const int echo2 = 19;  // sensor 2
+// === Tópicos MQTT ===
+const String topic_led = "NexTrain/S2/Atuadores/LED_RGB";
+const String topic_sensor = "NexTrain/S2/Sensores/Distancia";
 
+// === Função para medir distância ===
+float medirDistancia(int trig, int echo) {
+  digitalWrite(trig, LOW);
+  delayMicroseconds(5);
+  digitalWrite(trig, HIGH);
+  delayMicroseconds(10);
+  digitalWrite(trig, LOW);
 
-const String brokerUser = "";
+  long duracao = pulseIn(echo, HIGH);
+  float distancia = duracao * 0.034 / 2.0; // cm
+  return distancia;
+}
 
+// === Callback: executa ao receber mensagens MQTT ===
+void callback(char* topic, byte* payload, unsigned int length) {
+  String mensagem = "";
+  for (int i = 0; i < length; i++) {
+    mensagem += (char)payload[i];
+  }
+
+  Serial.print("Mensagem recebida no tópico [");
+  Serial.print(topic);
+  Serial.print("]: ");
+  Serial.println(mensagem);
+
+  // Controle do LED RGB via MQTT
+  if (String(topic) == topic_led) {
+    if (mensagem == "vermelho") {
+      analogWrite(redPin, 255);
+      analogWrite(greenPin, 0);
+      analogWrite(bluePin, 0);
+      Serial.println("LED: Vermelho");
+    } 
+    else if (mensagem == "verde") {
+      analogWrite(redPin, 0);
+      analogWrite(greenPin, 255);
+      analogWrite(bluePin, 0);
+      Serial.println("LED: Verde");
+    } 
+    else if (mensagem == "azul") {
+      analogWrite(redPin, 0);
+      analogWrite(greenPin, 0);
+      analogWrite(bluePin, 255);
+      Serial.println("LED: Azul");
+    } 
+    else if (mensagem == "branco") {
+      analogWrite(redPin, 255);
+      analogWrite(greenPin, 255);
+      analogWrite(bluePin, 255);
+      Serial.println("LED: Branco");
+    } 
+    else if (mensagem == "off") {
+      analogWrite(redPin, 0);
+      analogWrite(greenPin, 0);
+      analogWrite(bluePin, 0);
+      Serial.println("LED apagado");
+    }
+  }
+}
 
 void setup() {
   Serial.begin(115200);
   wifiClient.setInsecure();
 
-
   pinMode(trig1, OUTPUT);
   pinMode(echo1, INPUT);
-  pinMode(trig2, OUTPUT);
-  pinMode(echo2, INPUT);
 
+  pinMode(redPin, OUTPUT);
+  pinMode(greenPin, OUTPUT);
+  pinMode(bluePin, OUTPUT);
 
-  ledcAttach(redPin, 5000, 8);
-  ledcAttach(greenPin, 5000, 8);
-  ledcAttach(bluePin, 5000, 8);
-
-
-  WiFi.begin(WIFI_SSID, WIFI_PASS);  //tenta conectar na rede
-
-
-  Serial.println("Conectando no WiFi");
-  WiFi.begin(WIFI_SSID, WII_PASS);
+  // Conectar ao Wi-Fi
+  Serial.println("Conectando ao WiFi...");
+  WiFi.begin(WIFI_SSID, WIFI_PASS);
   while (WiFi.status() != WL_CONNECTED) {
     Serial.print(".");
     delay(500);
   }
-  Serial.println("\nWiFi conectado com sucesso!");
+  Serial.println("\nWiFi conectado!");
   Serial.print("Endereço IP: ");
-    Serial.println(WiFi.localIP();
+  Serial.println(WiFi.localIP());
 
+  // Conectar ao broker MQTT
+  mqtt.setServer(BROKER_URL, BROKER_PORT);
+  mqtt.setCallback(callback);
 
-    delay(200);
-}
-Serial.println("Conectado com sucesso!");
-mqtt.setServer(BROKER_URL.c_str(), BROKER_PORT);
-String clientID = "S2*";
-clientID += String(random(0xffff), HEX);
-Serial.println("Conectado ao broker");
-while (mqtt.connect(clientID.c_str()) == 0) {
-  Serial.println(".");
-  delay(2000);
-}
-mqtt.subscribe(topic.c_str());
-mqtt.setCallback(callback);
-Serial.println("\nConectado ao broker!");
-}
+  Serial.print("Conectando ao broker MQTT...");
+  String clientID = "S2_" + String(random(0xffff), HEX);
 
-
-
-float medirDistancia(int trig, int echo) {
-  digitalWrite(trig, LOW);
-  delayMicroseconds(10);
-  digitalWrite(trig, HIGH);
-  delayMicroseconds(10);
-  digitalWrite(trig, LOW);
-
-
-  long duracao = pulseIn(echo, HIGH);
-  float distancia = duracao * 0.034 / 2;  // Convertendo em cm
-  return distancia;
-}
-
-
-void callback(char* topic, byte* payload, unsigned long length) {
-  String MensagemRecebida = "";
-  for (int i = 0; i < length; i++) {
-    //Pega cada letra de payload e junta na mensagem
-    MensagemRecebida += (char)payload[i];
-  }
-  Serial.println(MensagemRecebida);
-
-  // Lendo as distâncias:
-
-  distancia1 = medirDistancia(trigPin1, echoPin1);
-  distancia2 = medirDistancia(trigPin2, echoPin2);
-
-
-  Serial.printf("Distância 1: %.2f cm | Distância 2: %.2f cm\n", distancia1, distancia2);  // Manda em cm
-
-  // Servo:
-  if (String(topic) == "NexTrain/S2/Atuadores/Servo_3") {
-    int angulo = msg.toInt();  // Msg vira ângulo
-    if (angulo >= 0 && angulo <= 180) {
-      servo3.write(angulo);
-      Serial.print("Servo 3 ajustado para ");
-      Serial.print(angulo);
-      Serial.println(" graus");
+  while (!mqtt.connected()) {
+    if (mqtt.connect(clientID.c_str(), BROKER_USR_ID, BROKER_PASS_USR_PASS)) {
+      Serial.println(" conectado!");
+    } else {
+      Serial.print(" falhou, rc=");
+      Serial.print(mqtt.state());
+      Serial.println(" tentando novamente em 2 segundos...");
+      delay(2000);
     }
   }
+
+  mqtt.subscribe(topic_led.c_str());
+  Serial.println("Inscrito no tópico de LED!");
 }
 
 void loop() {
-  mqtt.publish("NexTrain/S2/Sensores/Presence_2", String(distancia1).c_str());
-  mqtt.publish("NexTrain/S2/Sensores/Presence_4", String(distancia2).c_str());
+  if (!mqtt.connected()) {
+    // Reconecta se cair
+    String clientID = "S2_" + String(random(0xffff), HEX);
+    while (!mqtt.connect(clientID.c_str(), BROKER_USR_ID, BROKER_PASS_USR_PASS)) {
+      delay(2000);
+    }
+    mqtt.subscribe(topic_led.c_str());
+  }
+
   mqtt.loop();
+
+  // Leitura do sensor ultrassônico
+  float distancia = medirDistancia(trig1, echo1);
+  Serial.printf("Distância: %.2f cm\n", distancia);
+  
+  mqtt.publish(topic_sensor.c_str(), String(distancia).c_str());// Publica valor da distância
+
+  delay(2000); // A cada 2 segundos
 }
