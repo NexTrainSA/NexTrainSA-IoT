@@ -6,13 +6,22 @@
 WiFiClientSecure wifiClient;
 PubSubClient mqtt(wifiClient);
 
-const byte dir1 = 4;  // Mudar depois se necessário
-const byte dir2 = 5;
+const byte dir1 = 33;  // Mudar depois se necessário
+const byte dir2 = 25;
 
 // Pinos LED RGB:
-const byte vermelhinho = 2;
-const byte verdinho = 4;
-const byte azulzinho = 6;
+const byte vermelhinho = 5;
+const byte verdinho = 18;
+const byte azulzinho = 19;
+
+
+void statusLED(byte status);
+void turnOffLEDs();
+void setLEDColor(byte r, byte g, byte b);
+void callback(char* topic, byte* payload, unsigned int length);
+void connectToWifi();
+void connectToMQTT();
+
 
 // Controlando status do LED:
 void statusLED(byte status) {
@@ -58,17 +67,17 @@ void callback(char* topic, byte* payload, unsigned int length) {
   Serial.print("Mensagem recebida em ");
   Serial.println(topic);
 
-  // Acho que primeiro converte de byte para char...
   String msg = "";
   for (int i = 0; i < length; i++) {
     msg += (char)payload[i];
   }
-  // ... e de char para int
-  int valor = msg.toInt();
-  Serial.print("Velocidade recebida: ");
-  Serial.println(valor);
 
-  if (String(topic) == TOPIC_SPEED) {
+  if (String(topic) == "in/S4") {
+    if (!msg.startsWith("speed")) return;
+    String val = msg.substring(6);
+    Serial.print("Velocidade recebida: ");
+    Serial.println(val);
+    int valor = val.toInt();
     if (valor > 0) {  // Move para frente
       digitalWrite(dir1, HIGH);
       digitalWrite(dir2, LOW);
@@ -80,12 +89,12 @@ void callback(char* topic, byte* payload, unsigned int length) {
     } else {  // Parado
       digitalWrite(dir1, LOW);
       digitalWrite(dir2, LOW);
-      statusLED(254)
+      statusLED(254);
     }
   }
 }
 
-void connectToWifi {
+void connectToWifi() {
   // Conectando à Internet:
   statusLED(2);
   WiFi.begin(WIFI_SSID, WIFI_PASS);
@@ -109,7 +118,7 @@ void connectToMQTT() {
   clientID += String(random(0xffff), HEX);
   Serial.println("Conectando ao Broker...");
 
-    while (!mqtt.connected()) {
+  while (!mqtt.connected()) {
     if (mqtt.connect(clientID.c_str())) {
       Serial.println("\nConectado ao Broker!");
       mqtt.subscribe(TOPIC_SPEED);
