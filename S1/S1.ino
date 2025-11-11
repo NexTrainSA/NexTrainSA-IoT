@@ -5,9 +5,15 @@
 #include <DHT.h>
 
 #define pinLDR 34       //ldr
-#define pinDHT 13       // Pino digital do ESP32 para o DHT
+#define pinDHT 4       // Pino digital do ESP32 para o DHT
 #define DHTTYPE DHT11   // Tipo de sensor: DHT11
-#define pinPIR 25      // Pino digital para o Sensor PIR
+
+#define LED_RGB_R 14 // led rgb r
+#define LED_RGB_G 26 // led rgb g 
+#define LED_RGB_B 25 // led rgb b 
+
+#define Ultra_tring 22 //ultrassonic pin
+#define Ultra_echo 23 //ultrassonic pin 
 
 const float LIMITAR_TEMPERATURA = 28.0; // acima de 28.0°C é considerado "Quente"
 const float LIMITAR_UMIDADE = 60.0;     // acima de 60.0% é considerado "Úmido"
