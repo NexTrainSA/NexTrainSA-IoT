@@ -16,7 +16,6 @@ const int PINO_ECHO2 = 27; // Pino D17 conectado ao ECHO do HC-SR04
 const int PINO_R = 18;
 const int PINO_G = 19;
 const int PINO_B = 21;
-//Fim 
 
 //Variáveis
 String currentColor = "NONE"; //Guarda o valor hexadecimal da cor atual do LED RGB
@@ -161,7 +160,7 @@ void readSensors() {    //Envia o sinal no TRIG, espera a resposta ECHO, Mede te
 void publishData() {  //Envio de dados via MQTT
   StaticJsonDocument<300> doc;
 
-  doc["PRESENCE2"] = String(presence2); ;;Distância do sensor 1;
+  doc["PRESENCE2"] = String(presence2); //Distância do sensor 1;
   doc["PRESENCE4"] = String(presence4); //Distância do sensor 2;
   doc["LED_STATE"] = ledState ? "Ligado" : "Desligado"; //Led ligado ou desligado
   doc["LED_RGB"] = currentColor; //Cor atual (HEX)
