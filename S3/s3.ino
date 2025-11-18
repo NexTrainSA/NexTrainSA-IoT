@@ -1,36 +1,67 @@
 #include "env.h"
 
+
+
 #include <WiFi.h>
+
 #include <PubSubClient.h>
+
+
+
 #include <ArduinoJson.h>
+
+
+
 // Pin definitions
+
 #define LED_PIN 2
 
+
+
 const int PINO_TRIG = 4; // Pino D4 conectado ao TRIG do HC-SR04
+
 const int PINO_ECHO = 5; // Pino D2 conectado ao ECHO do HC-SR04
 
-const int PINO_TRIG2 = 16; // Pino D16 conectado ao TRIG do HC-SR04
-const int PINO_ECHO2 = 17; // Pino D17 conectado ao ECHO do HC-SR04
+
 
 const int PINO_R = 18;
+
 const int PINO_G = 19;
+
 const int PINO_B = 21;
+
+
 
 String currentColor = "NONE";
 
+
+
 // WiFi and MQTT clients
+
 WiFiClient espClient;
+
 PubSubClient client(espClient);
 
+
+
 // Variables
-float presence2 = 0;
-float presence4 = 0;
+
+float presence = 0;
+
 bool ledState = false;
+
 String ledRgbState = "Desligado";
+
+
+
 unsigned long lastMsg = 0;
+
 const long interval = 2000; // Send data every 2 seconds
 
+
+
 String rgbToHex(int r, int g, int b)
+
 {  
 
   long colorValue = ((r & 0xFF) << 16) | ((g & 0xFF) << 8) | (b & 0xFF);
@@ -125,7 +156,7 @@ void callback(char* topic, byte* payload, unsigned int length) {
 void reconnect() {
   while (!client.connected()) {
     Serial.print("Attempting MQTT connection...");
-    String clientId = "ESP32_S2_";
+    String clientId = "ESP32_S1_";
     clientId += String(random(0xffff), HEX);
 
     if (client.connect(clientId.c_str(), "nextrain", "nextrain")) {
@@ -146,16 +177,9 @@ void readSensors() {
   digitalWrite(PINO_TRIG, HIGH);
   delayMicroseconds(10);
   digitalWrite(PINO_TRIG, LOW);
-  long duracao1 = pulseIn(PINO_ECHO, HIGH);
-  presence2 = (duracao1 * 0.0343) / 2;
-  delay(20); 
-  digitalWrite(PINO_TRIG2, LOW);
-  delayMicroseconds(2);
-  digitalWrite(PINO_TRIG2, HIGH);
-  delayMicroseconds(10);
-  digitalWrite(PINO_TRIG2, LOW);
-  long duracao2 = pulseIn(PINO_ECHO2, HIGH);
-  presence4 = (duracao2 * 0.0343) / 2;
+
+  long duracao = pulseIn(PINO_ECHO, HIGH); // Mede o tempo de resposta do ECHO  
+  presence = (duracao * 0.0343) / 2;
 }
 
 
@@ -163,8 +187,8 @@ void readSensors() {
 void publishData() {
   StaticJsonDocument<300> doc;
 
-  doc["PRESENCE2"] = String(presence2);
-  doc["PRESENCE4"] = String(presence4);
+  // S3 : LED_STATE, LED_RGB, PRESENCE3
+  doc["PRESENCE3"] = String(presence);
   doc["LED_STATE"] = ledState ? "Ligado" : "Desligado";
   doc["LED_RGB"] = currentColor;
 
@@ -184,8 +208,6 @@ void setup() {
   pinMode(LED_PIN, OUTPUT);
   pinMode(PINO_TRIG, OUTPUT);
   pinMode(PINO_ECHO, INPUT);
-  pinMode(PINO_TRIG2, OUTPUT);
-  pinMode(PINO_ECHO2, INPUT);
   pinMode(PINO_R,  OUTPUT);              
   pinMode(PINO_G, OUTPUT);
   pinMode(PINO_B, OUTPUT);
@@ -201,7 +223,7 @@ void setup() {
   // Configure MQTT
   client.setServer(mqtt_server, mqtt_port);
   client.setCallback(callback);
-  Serial.println("S2 Station initialized!");
+  Serial.println("S1 Station initialized!");
 }
 
 void loop() {

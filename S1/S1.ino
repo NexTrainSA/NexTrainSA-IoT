@@ -4,171 +4,154 @@
 #include "env.h"
 #include <DHT.h>
 
-#define pinLDR 34       //ldr
-#define pinDHT 4       // Pino digital do ESP32 para o DHT
+// Definições de Pinos
+#define pinLDR 34       // LDR (Luminosidade)
+#define pinDHT 4        // Pino digital para o sensor DHT11
 #define DHTTYPE DHT11   // Tipo de sensor: DHT11
-#define led 19
-#define pinLDR 34
-#define pinDHT 4      
-#define DHTTYPE DHT11
 
+#define led 19          // LED de Iluminação
+#define TRIGGER_PIN 22  // Pino Trigger do Ultrassônico
+#define ECHO_PIN 23     // Pino Echo do Ultrassônico
 
-#define TRIGGER_PIN 22 //ultrassonico
-#define ECHO_PIN 23 //ultrassonico
+#define LED_RGB_R 14    // LED RGB - Red
+#define LED_RGB_G 26    // LED RGB - Green
+#define LED_RGB_B 25    // LED RGB - Blue
 
-#define LED_RGB_R 14 // led rgb r
-#define LED_RGB_G 26 // led rgb g 
-#define LED_RGB_B 25 // led rgb b 
+// Variáveis de Limites (se não usadas, podem ser removidas)
+const float LIMITAR_TEMPERATURA = 28.0; // Acima de 28.0°C é considerado "Quente"
+const float LIMITAR_UMIDADE = 60.0;     // Acima de 60.0% é considerado "Úmido"
 
-#define Ultra_tring 22 //ultrassonic pin
-#define Ultra_echo 23 //ultrassonic pin 
-#define LED_RGB_B 25 // led rgb b
-
-const float LIMITAR_TEMPERATURA = 28.0; // acima de 28.0°C é considerado "Quente"
-const float LIMITAR_UMIDADE = 60.0;     // acima de 60.0% é considerado "Úmido"
-const float LIMITAR_TEMPERATURA = 28.0;  
-const float LIMITAR_UMIDADE = 60.0;      
-
+// Objetos
 DHT dht(pinDHT, DHTTYPE);
-
 WiFiClientSecure wifi_client;
 PubSubClient mqtt(wifi_client);
 
-const String brokerUser = ""; //na SA vai ter, já que esse é publico e a SA não
-const String brokerUser = "";  
-const String brokerPass = "";
 
-void setup() {
-  Serial.begin(115200);
 
-  wifi_client.setInsecure();
-
-    pinMode(2, OUTPUT);
-    dht.begin();
-    pinMode(pinPIR, INPUT);
-  pinMode(2, OUTPUT);
-  dht.begin();
-
-  pinMode(19, OUTPUT);
-
-  pinMode(TRIGGER_PIN, OUTPUT);
-  pinMode(ECHO_PIN, INPUT);
-
-  WiFi.begin(WIFI_SSID, WIFI_PASS);
-  Serial.println("Conectando no WiFi");
-  while(WiFi.status() != WL_CONNECTED){
-  while (WiFi.status() != WL_CONNECTED) {
-    Serial.print(".");
-    delay(200);
-  }
-
-  Serial.println("Conectado com sucesso!");
-
-  mqtt.setServer(BROKER_URL, BROKER_PORT); //isso aí cria um nome aleatório que aparece pra plaquinha, que é "S1-" + um código aleatório qualquer
-  mqtt.setServer(BROKER_URL, BROKER_PORT);  
-  String clientID = "S1-";
-  clientID += String(random(0xffff),HEX);
-  clientID += String(random(0xffff), HEX);
-  Serial.println("Conectando ao broker...");
-  while (mqtt.connect (clientID.c_str () , BROKER_USR_ID, BROKER_USR_PASS) == 0 ){ //aqui o cod do iago
-  while (mqtt.connect(clientID.c_str(), BROKER_USR_ID, BROKER_USR_PASS) == 0) {  //aqui o cod do iago
-    Serial.println(".");
-    delay(200);
-  }
-  mqtt.subscribe(TOPIC_PRESENCE_1); //conectando a inscrição no tópico com outra placa de msm tópico
-  mqtt.subscribe(TOPIC_PRESENCE_1);  
-  mqtt.subscribe(TOPIC_UMID_1);
-  mqtt.subscribe(TOPIC_TEMP_1);
-  mqtt.subscribe(TOPIC_LUMI_1);
-
-  mqtt.setCallback(callback);
-@@ -55,54 +70,85 @@ void setup() {
-  Serial.println("\nConectado ao broker!");
-}
-
-void loop() {
-    int luz = map(analogRead(pinLDR),0,4095,0,100);
-    if(luz > 50){
-      mqtt.publish(TOPIC_LUMI_1,"Claro");
-    }else{
-      mqtt.publish(TOPIC_LUMI_1,"Escuro");
-    }
-//função de ler distância:
+// Função para ler a distância (Ultrassônico)
 long lerDistancia() {
+  // Envia pulso de trigger
   digitalWrite(TRIGGER_PIN, LOW);
   delayMicroseconds(2);
   digitalWrite(TRIGGER_PIN, HIGH);
   delayMicroseconds(10);
   digitalWrite(TRIGGER_PIN, LOW);
 
-    mqtt.loop();
-    delay(500);
+  // Lê a duração do pulso de echo
   long duracao = pulseIn(ECHO_PIN, HIGH);
-  long distancia = duracao * 349.24 / 2 / 10000;
+  // Converte a duração para distância em cm (usando 343.2 m/s, convertido para cm/µs)
+  long distancia = duracao * 0.03432 / 2; // 0.03432 cm/µs é a velocidade do som
 
-  float t = dht.readTemperature();
-  if (t > LIMITAR_TEMPERATURA){
-    mqtt.publish(TOPIC_TEMP_1,"Quente");
   return distancia;
+}
+
+void setup() {
+  Serial.begin(115200);
+
+  // Inicialização do WiFiClientSecure (para broker com TLS)
+  wifi_client.setInsecure();
+
+  // Configuração dos Pinos
+  dht.begin();
+  pinMode(led, OUTPUT);
+  pinMode(TRIGGER_PIN, OUTPUT);
+  pinMode(ECHO_PIN, INPUT);
+
+  // Configuração dos Pinos do LED RGB
+  pinMode(LED_RGB_R, OUTPUT);
+  pinMode(LED_RGB_G, OUTPUT);
+  pinMode(LED_RGB_B, OUTPUT);
+  
+  // Desliga o LED RGB inicialmente
+  digitalWrite(LED_RGB_R, HIGH); // Assumindo LED RGB é Anodo Comum (HIGH=OFF)
+  digitalWrite(LED_RGB_G, HIGH);
+  digitalWrite(LED_RGB_B, HIGH);
+
+  // Conexão WiFi
+  WiFi.begin(WIFI_SSID, WIFI_PASS);
+  Serial.println("Conectando no WiFi");
+  while (WiFi.status() != WL_CONNECTED) {
+    Serial.print(".");
+    delay(200);
+  }
+  Serial.println("\nConectado com sucesso!");
+
+  // Conexão MQTT
+  mqtt.setServer(BROKER_URL, BROKER_PORT);
+  String clientID = "S1-";
+  clientID += String(random(0xffff), HEX);
+  Serial.println("Conectando ao broker...");
+
+  while (!mqtt.connect(clientID.c_str(), BROKER_USR_ID, BROKER_USR_PASS)) {
+    Serial.print(".");
+    delay(200);
+  }
+  Serial.println("\nConectado ao broker!");
+
+  // Subscrição a Tópicos (Ajustar conforme o que S1 deve receber)
+  // Assumi que S1 não precisa subscrever a seus próprios tópicos de dados de sensor
+  // Se S1 recebe comandos, eles devem ser subscritos aqui.
+  // mqtt.subscribe(TOPIC_COMANDO_S1);
+}
+
+// Função para controlar o LED RGB (Anodo Comum)
+void setRgbColor(int r, int g, int b) {
+  digitalWrite(LED_RGB_R, !r); // !r, !g, !b para Anodo Comum
+  digitalWrite(LED_RGB_G, !g);
+  digitalWrite(LED_RGB_B, !b);
 }
 
 
 void loop() {
-  int luz = map(analogRead(pinLDR), 0, 4095, 0, 100);
-  if (luz > 50) {
-    mqtt.publish(TOPIC_LUMI_1, "Claro");
-    digitalWrite(19, LOW);
-  } else {
-    mqtt.publish(TOPIC_TEMP_1,"Frio");
-    mqtt.publish(TOPIC_LUMI_1, "Escuro");
-    digitalWrite(19, HIGH);
-  }
-  //adicionar o dado com um novo tópico, para o site
+  mqtt.loop();
+
+  // --- Leitura e Publicação de Luminosidade (LDR) ---
+  int luz_analog = analogRead(pinLDR);
+  int luz_percent = map(luz_analog, 0, 4095, 0, 100); // 4095 é o máximo para o ADC do ESP32 (12-bit)
   
-    mqtt.loop();
-    delay(500);
-
-  float h = dht.readHumidity();
-    if (h > LIMITAR_UMIDADE){
-    mqtt.publish(TOPIC_UMID_1,"Úmido");
+  if (luz_percent > 50) {
+    mqtt.publish(TOPIC_LUMI_1, "Claro");
+    digitalWrite(led, LOW); // Desliga o LED de iluminação se estiver claro (LOW se for Active-LOW/Anodo Comum)
+    setRgbColor(0, 1, 0); // Verde (indicador de "Claro")
   } else {
-    mqtt.publish(TOPIC_UMID_1,"Seco");
-//adicionar o dado com um novo tópico, para o site
-  mqtt.loop();
-  delay(500);
-
+    mqtt.publish(TOPIC_LUMI_1, "Escuro");
+    digitalWrite(led, HIGH); // Liga o LED de iluminação se estiver escuro (HIGH se for Active-HIGH/Catodo Comum)
+    setRgbColor(0, 0, 1); // Azul (indicador de "Escuro")
   }
+
+  delay(500);
+  mqtt.loop();
+
+  // --- Leitura e Publicação de Temperatura (DHT) ---
   float t = dht.readTemperature();
-  String tempString = String(t, 1);
-  mqtt.publish(TOPIC_TEMP_1, tempString.c_str());
+  if (!isnan(t)) {
+    String tempString = String(t, 1);
+    mqtt.publish(TOPIC_TEMP_1, tempString.c_str());
+  }
 
-  mqtt.loop();
   delay(500);
+  mqtt.loop();
 
+  // --- Leitura e Publicação de Umidade (DHT) ---
   float h = dht.readHumidity();
- 
-  String umidString = String(h, 1);  // 1 dígito decimal de precisão
-  mqtt.publish(TOPIC_UMID_1, umidString.c_str());
+  if (!isnan(h)) {
+    String umidString = String(h, 1);
+    mqtt.publish(TOPIC_UMID_1, umidString.c_str());
+  }
 
-    mqtt.loop();
-    delay(500);
-  mqtt.loop();
   delay(500);
+  mqtt.loop();
 
-    int presenca = digitalRead(pinPIR);
-    if(presenca == HIGH){
-      mqtt.publish(TOPIC_PRESENCE_1,"Presente");
-    }else{
-      mqtt.publish(TOPIC_PRESENCE_1,"Ausente");
-    }
+  // --- Leitura e Publicação de Presença (Ultrassônico) ---
   long distancia = lerDistancia();
 
-    mqtt.loop();
-    delay(500);
-  if (distancia < 10) {
+  if (distancia > 0 && distancia < 50) { // Considera presença se a distância for menor que 50 cm
     mqtt.publish(TOPIC_PRESENCE_1, "Presente");
+    // Você pode adicionar uma cor de LED RGB para presença aqui, por exemplo, Vermelho
+    // setRgbColor(1, 0, 0); 
   } else {
     mqtt.publish(TOPIC_PRESENCE_1, "Ausente");
   }
-  delay(500);
+
+  delay(500); // Espera 500ms entre as leituras/publicações para o ciclo completo
 }
