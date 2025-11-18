@@ -3,34 +3,37 @@
 #include <WiFi.h>
 #include <PubSubClient.h>
 #include <ArduinoJson.h>
-// Pin definitions
+
+// Definição dos pinos
 #define LED_PIN 2
 
 const int PINO_TRIG = 4; // Pino D4 conectado ao TRIG do HC-SR04
 const int PINO_ECHO = 5; // Pino D2 conectado ao ECHO do HC-SR04
 
-const int PINO_TRIG2 = 16; // Pino D16 conectado ao TRIG do HC-SR04
-const int PINO_ECHO2 = 17; // Pino D17 conectado ao ECHO do HC-SR04
+const int PINO_TRIG2 = 26; // Pino D16 conectado ao TRIG do HC-SR04
+const int PINO_ECHO2 = 27; // Pino D17 conectado ao ECHO do HC-SR04
 
 const int PINO_R = 18;
 const int PINO_G = 19;
 const int PINO_B = 21;
+//Fim 
 
-String currentColor = "NONE";
+//Variáveis
+String currentColor = "NONE"; //Guarda o valor hexadecimal da cor atual do LED RGB
 
 // WiFi and MQTT clients
 WiFiClient espClient;
 PubSubClient client(espClient);
 
 // Variables
-float presence2 = 0;
-float presence4 = 0;
-bool ledState = false;
+float presence2 = 0; //Distância medida pelos sensores
+float presence4 = 0; 
+bool ledState = false; //Guarda se o led comum está ligado ou desligado
 String ledRgbState = "Desligado";
-unsigned long lastMsg = 0;
-const long interval = 2000; // Send data every 2 seconds
+unsigned long lastMsg = 0; //armazena o último envio MQTT
+const long interval = 2000; // Envia dados a cada 2 segundos
 
-String rgbToHex(int r, int g, int b)
+String rgbToHex(int r, int g, int b) //Transforma valores RGB em uma cor HEX
 {  
 
   long colorValue = ((r & 0xFF) << 16) | ((g & 0xFF) << 8) | (b & 0xFF);
@@ -41,7 +44,7 @@ String rgbToHex(int r, int g, int b)
 
 
 
-void setColor(int redValue, int greenValue,  int blueValue) {
+void setColor(int redValue, int greenValue,  int blueValue) { //Usada para controlar cada canal do LED;
   currentColor = rgbToHex(redValue, greenValue, blueValue);
 
   analogWrite(PINO_R, redValue);
@@ -49,7 +52,7 @@ void setColor(int redValue, int greenValue,  int blueValue) {
   analogWrite(PINO_B, blueValue);
 }
 
-void setColor(String hex) {
+void setColor(String hex) { //Converte HEX para RGB e escreve os valores nos pinos;
   if (hex.startsWith("#")) {
     hex.remove(0, 1);
   }
@@ -63,9 +66,7 @@ void setColor(String hex) {
   analogWrite(PINO_B, b);
 }
 
-
-
-void setup_wifi() {
+void setup_wifi() { //Conecta ao WiFi usando SSID e senha do env.h
   delay(10);
   Serial.println();
   Serial.print("Connecting to ");
@@ -82,7 +83,7 @@ void setup_wifi() {
   Serial.println(WiFi.localIP());
 }
 
-void callback(char* topic, byte* payload, unsigned int length) {
+void callback(char* topic, byte* payload, unsigned int length) { //Recebe mensagens do MQTT enviadas ao ESP32
   String message = "";
   for (int i = 0; i < length; i++) {
     message += (char)payload[i];
@@ -92,15 +93,15 @@ void callback(char* topic, byte* payload, unsigned int length) {
   Serial.print(topic);
   Serial.print("] ");
   Serial.println(message);
-  if(message == "ping") {
+  if(message == "ping") { 
     client.publish(mqtt_topic_out, "pong");
   }
 
-  if (message == "TOGGLE_LED") {
+  if (message == "TOGGLE_LED") { //Liga e desliga o LED branco
     ledState = !ledState;
     digitalWrite(LED_PIN, ledState ? HIGH : LOW);
   }
-
+  //Muda a cor do LED RGB
   if (message == "GREEN") {
     setColor(0,255,0);
   }
@@ -113,6 +114,7 @@ void callback(char* topic, byte* payload, unsigned int length) {
     setColor(255,0,0);
   }
 
+
   if(message.startsWith("color/")) {
     String color = message.substring(7);
     Serial.println("Color: " + color);
@@ -120,9 +122,7 @@ void callback(char* topic, byte* payload, unsigned int length) {
   }
 }
 
-
-
-void reconnect() {
+void reconnect() { //Se o ESP32 perda a conexão com o MQTT, ele tenta reconectar infinitamente
   while (!client.connected()) {
     Serial.print("Attempting MQTT connection...");
     String clientId = "ESP32_S2_";
@@ -140,7 +140,7 @@ void reconnect() {
   }
 }
 
-void readSensors() {
+void readSensors() {    //Envia o sinal no TRIG, espera a resposta ECHO, Mede tempo de retorno e converte para distância em cm;
   digitalWrite(PINO_TRIG, LOW);
   delayMicroseconds(2);
   digitalWrite(PINO_TRIG, HIGH);
@@ -158,15 +158,13 @@ void readSensors() {
   presence4 = (duracao2 * 0.0343) / 2;
 }
 
-
-
-void publishData() {
+void publishData() {  //Envio de dados via MQTT
   StaticJsonDocument<300> doc;
 
-  doc["PRESENCE2"] = String(presence2);
-  doc["PRESENCE4"] = String(presence4);
-  doc["LED_STATE"] = ledState ? "Ligado" : "Desligado";
-  doc["LED_RGB"] = currentColor;
+  doc["PRESENCE2"] = String(presence2); ;;Distância do sensor 1;
+  doc["PRESENCE4"] = String(presence4); //Distância do sensor 2;
+  doc["LED_STATE"] = ledState ? "Ligado" : "Desligado"; //Led ligado ou desligado
+  doc["LED_RGB"] = currentColor; //Cor atual (HEX)
 
   char jsonBuffer[300];
   serializeJson(doc, jsonBuffer);
@@ -175,12 +173,10 @@ void publishData() {
   Serial.println(jsonBuffer);
 }
 
-
-
 void setup() {
   Serial.begin(115200);
 
-  // Initialize pins
+  // Inicializa os pinos
   pinMode(LED_PIN, OUTPUT);
   pinMode(PINO_TRIG, OUTPUT);
   pinMode(PINO_ECHO, INPUT);
@@ -190,11 +186,12 @@ void setup() {
   pinMode(PINO_G, OUTPUT);
   pinMode(PINO_B, OUTPUT);
 
-  // Turn off all LEDs initially
+  // Desliga todos os leds inicialmente
   digitalWrite(LED_PIN, LOW);
   digitalWrite(PINO_R, LOW);
   digitalWrite(PINO_G, LOW);
   digitalWrite(PINO_B, LOW);
+
   // Connect to WiFi
   setup_wifi();
 
@@ -205,16 +202,16 @@ void setup() {
 }
 
 void loop() {
-  if (!client.connected()) {
-    reconnect();
+  if (!client.connected()) { //Verifica se o ESP32 está conectado ao broker MQTT
+    reconnect(); //Caso não esteja conectado, a função reconnect é chamada
   }
 
   client.loop();
-  unsigned long now = millis();
+  unsigned long now = millis(); //Retorna o tempo em milissegundos desde que o ESP32 ligou
 
-  if (now - lastMsg > interval) {
-    lastMsg = now;
-    readSensors();
-    publishData();
+  if (now - lastMsg > interval) { //lastMsg guarda o momento do último envio de dados. Interval 2000ms (2 segundos), se passou 2 segundos desde o último envio, o bloco interno é executado
+    lastMsg = now; //Marca uma nova leitura/envio que será feito, reiniciando o contador de tempo
+    readSensors(); //Mede a distância dos dois sensores ultrassônicos e atualiza a presence2 e presence4
+    publishData(); //Monta um JSON com a distância, estado do led, cor do led rgb e publica no tópico MQTT de saóda
   }
 }
