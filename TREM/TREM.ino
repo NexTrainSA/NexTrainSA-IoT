@@ -14,6 +14,12 @@ const byte vermelhinho = 5;
 const byte verdinho = 18;
 const byte azulzinho = 19;
 
+// PWM (ledc) channels e configuração
+const uint8_t CH_R = 0;
+const uint8_t CH_G = 1;
+const uint8_t CH_B = 2;
+const uint32_t PWM_FREQ = 5000;
+const uint8_t PWM_RES = 8; 
 
 void statusLED(byte status);
 void turnOffLEDs();
@@ -21,7 +27,6 @@ void setLEDColor(byte r, byte g, byte b);
 void callback(char* topic, byte* payload, unsigned int length);
 void connectToWifi();
 void connectToMQTT();
-
 
 // Controlando status do LED:
 void statusLED(byte status) {
@@ -42,6 +47,9 @@ void statusLED(byte status) {
     case 4:  // Movendo para trás (Ciano)
       setLEDColor(0, 255, 255);
       break;
+    case 0:  // Parado (desliga LEDs)
+      turnOffLEDs();
+      break;
     default:
       for (byte i = 0; i < 4; i++) {
         setLEDColor(0, 0, 255);  // Erro no status (pisca azul)
@@ -58,9 +66,9 @@ void turnOffLEDs() {
 }
 
 void setLEDColor(byte r, byte g, byte b) {
-  ledcWrite(vermelhinho, r);
-  ledcWrite(verdinho, g);
-  ledcWrite(azulzinho, b);
+  ledcWrite(CH_R, r);
+  ledcWrite(CH_G, g);
+  ledcWrite(CH_B, b);
 }
 
 void callback(char* topic, byte* payload, unsigned int length) {
@@ -68,7 +76,7 @@ void callback(char* topic, byte* payload, unsigned int length) {
   Serial.println(topic);
 
   String msg = "";
-  for (int i = 0; i < length; i++) {
+  for (unsigned int i = 0; i < length; i++) {
     msg += (char)payload[i];
   }
 
@@ -78,7 +86,7 @@ void callback(char* topic, byte* payload, unsigned int length) {
     Serial.print("Velocidade recebida: ");
     Serial.println(val);
     int valor = val.toInt();
-    if (valor > 0) {  // Move para frente
+    if (valor > 0) {  // Frente
       digitalWrite(dir1, HIGH);
       digitalWrite(dir2, LOW);
       statusLED(3);
@@ -89,23 +97,28 @@ void callback(char* topic, byte* payload, unsigned int length) {
     } else {  // Parado
       digitalWrite(dir1, LOW);
       digitalWrite(dir2, LOW);
-      statusLED(254);
+      statusLED(0);
     }
   }
 }
 
 void connectToWifi() {
   // Conectando à Internet:
-  statusLED(2);
+  statusLED(1);
   WiFi.begin(WIFI_SSID, WIFI_PASS);
   Serial.println("Conectando à Internet...");
 
+  unsigned long start = millis();
   while (WiFi.status() != WL_CONNECTED) {
-    Serial.print("Falha ao conectar.");
-    statusLED(254);
+    if (millis() - start > 10000) { 
+      Serial.println("Falha ao conectar. Retentando...");
+      statusLED(254);
+      start = millis();
+    }
     delay(200);
   }
   Serial.println("\nConectado à Internet!");
+  statusLED(0);
 }
 
 void connectToMQTT() {
@@ -118,29 +131,56 @@ void connectToMQTT() {
   clientID += String(random(0xffff), HEX);
   Serial.println("Conectando ao Broker...");
 
+  unsigned long start = millis();
   while (!mqtt.connected()) {
     if (mqtt.connect(clientID.c_str())) {
       Serial.println("\nConectado ao Broker!");
       mqtt.subscribe(TOPIC_SPEED);
+      statusLED(0);
     } else {
       Serial.print("Falha ao conectar.");
       statusLED(254);
       delay(2000);
+      if (millis() - start > 30000) { 
+        break;
+      }
     }
   }
 }
 
 void setup() {
   Serial.begin(115200);
+  randomSeed(analogRead(0));
   wifiClient.setInsecure();
 
   pinMode(dir1, OUTPUT);
   pinMode(dir2, OUTPUT);
-  ledcAttach(vermelhinho, 5000, 8);
-  ledcAttach(verdinho, 5000, 8);
-  ledcAttach(azulzinho, 5000, 8);
+
+  // Configura PWM (ledc) corretamente: setup + attach pin
+  ledcSetup(CH_R, PWM_FREQ, PWM_RES);
+  ledcAttachPin(vermelhinho, CH_R);
+
+  ledcSetup(CH_G, PWM_FREQ, PWM_RES);
+  ledcAttachPin(verdinho, CH_G);
+
+  ledcSetup(CH_B, PWM_FREQ, PWM_RES);
+  ledcAttachPin(azulzinho, CH_B);
+
+  // Conexões iniciais
+  connectToWifi();
+  connectToMQTT();
 }
 
 void loop() {
+  if (WiFi.status() != WL_CONNECTED) {
+    Serial.println("WiFi desconectado. Tentando reconectar...");
+    connectToWifi();
+  }
+
+  if (!mqtt.connected()) {
+    Serial.println("MQTT não conectado. Tentando conectar...");
+    connectToMQTT();
+  }
+  
   mqtt.loop();
 }
