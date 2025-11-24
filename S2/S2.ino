@@ -196,7 +196,7 @@ void setup() {
 
   // Configure MQTT
   client.setServer(mqtt_server, mqtt_port);
-  client.setCallback(callback);
+  client.setCallback(callback); //Define qual a função que será chamada quando uma mensagem chegar de um tópico
   Serial.println("S2 Station initialized!");
 }
 
@@ -208,9 +208,10 @@ void loop() {
   client.loop();
   unsigned long now = millis(); //Retorna o tempo em milissegundos desde que o ESP32 ligou
 
-  if (now - lastMsg > interval) { //lastMsg guarda o momento do último envio de dados. Interval 2000ms (2 segundos), se passou 2 segundos desde o último envio, o bloco interno é executado
+  //lastMsg guarda o momento do último envio de dados. Interval 2000ms (2 segundos), se passou 2 segundos desde o último envio, o bloco interno é executado
+  if (now - lastMsg > interval) { 
     lastMsg = now; //Marca uma nova leitura/envio que será feito, reiniciando o contador de tempo
     readSensors(); //Mede a distância dos dois sensores ultrassônicos e atualiza a presence2 e presence4
-    publishData(); //Monta um JSON com a distância, estado do led, cor do led rgb e publica no tópico MQTT de saóda
+    publishData(); //Monta um JSON com a distância, estado do led, cor do led rgb e publica no tópico MQTT de saída
   }
 }
