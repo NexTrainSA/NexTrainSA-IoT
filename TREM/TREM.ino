@@ -105,6 +105,7 @@ void callback(char* topic, byte* payload, unsigned int length) {
 void connectToWifi() {
   // Conectando à Internet:
   statusLED(1);
+  delay(500);
   WiFi.begin(WIFI_SSID, WIFI_PASS);
   Serial.println("Conectando à Internet...");
 
@@ -124,6 +125,7 @@ void connectToWifi() {
 void connectToMQTT() {
   // Comunicação com broker:
   statusLED(2);
+  delay(500);
   mqtt.setServer(BROKER_URL, BROKER_PORT);
   mqtt.setCallback(callback);
 
@@ -156,7 +158,6 @@ void setup() {
   pinMode(dir1, OUTPUT);
   pinMode(dir2, OUTPUT);
 
-  // Configura PWM (ledc) corretamente: setup + attach pin
   ledcSetup(CH_R, PWM_FREQ, PWM_RES);
   ledcAttachPin(vermelhinho, CH_R);
 
@@ -166,7 +167,6 @@ void setup() {
   ledcSetup(CH_B, PWM_FREQ, PWM_RES);
   ledcAttachPin(azulzinho, CH_B);
 
-  // Conexões iniciais
   connectToWifi();
   connectToMQTT();
 }
