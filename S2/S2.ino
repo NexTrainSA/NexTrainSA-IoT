@@ -34,14 +34,11 @@ const long interval = 2000; // Envia dados a cada 2 segundos
 
 String rgbToHex(int r, int g, int b) //Transforma valores RGB em uma cor HEX
 {  
-
   long colorValue = ((r & 0xFF) << 16) | ((g & 0xFF) << 8) | (b & 0xFF);
   char hexString[7];
   snprintf(hexString, sizeof(hexString), "%06lX", colorValue);
   return String(hexString);
 }
-
-
 
 void setColor(int redValue, int greenValue,  int blueValue) { //Usada para controlar cada canal do LED;
   currentColor = rgbToHex(redValue, greenValue, blueValue);
@@ -92,8 +89,8 @@ void callback(char* topic, byte* payload, unsigned int length) { //Recebe mensag
   Serial.print(topic);
   Serial.print("] ");
   Serial.println(message);
-  if(message == "ping") { 
-    client.publish(mqtt_topic_out, "pong");
+  if(message == "ping") { //recebe
+    client.publish(mqtt_topic_out, "pong"); //responde
   }
 
   if (message == "TOGGLE_LED") { //Liga e desliga o LED branco
@@ -112,7 +109,6 @@ void callback(char* topic, byte* payload, unsigned int length) { //Recebe mensag
   if (message == "RED") {
     setColor(255,0,0);
   }
-
 
   if(message.startsWith("color/")) {
     String color = message.substring(7);
@@ -162,7 +158,7 @@ void publishData() {  //Envio de dados via MQTT
 
   doc["PRESENCE2"] = String(presence2); //Distância do sensor 1;
   doc["PRESENCE4"] = String(presence4); //Distância do sensor 2;
-  doc["LED_STATE"] = ledState ? "Ligado" : "Desligado"; //Led ligado ou desligado
+  doc["LED_STATE"] = ledState ? "Ligado" : "Desligado"; 
   doc["LED_RGB"] = currentColor; //Cor atual (HEX)
 
   char jsonBuffer[300];
@@ -208,10 +204,9 @@ void loop() {
   client.loop();
   unsigned long now = millis(); //Retorna o tempo em milissegundos desde que o ESP32 ligou
 
-  //lastMsg guarda o momento do último envio de dados. Interval 2000ms (2 segundos), se passou 2 segundos desde o último envio, o bloco interno é executado
-  if (now - lastMsg > interval) { 
-    lastMsg = now; //Marca uma nova leitura/envio que será feito, reiniciando o contador de tempo
-    readSensors(); //Mede a distância dos dois sensores ultrassônicos e atualiza a presence2 e presence4
-    publishData(); //Monta um JSON com a distância, estado do led, cor do led rgb e publica no tópico MQTT de saída
+  if (now - lastMsg > interval) { //if se ja passou o tempo desejado para enviar uma nova leitura
+    lastMsg = now;//lastMsg momento da última mensagem enviada
+    readSensors(); //Lê os sensores de temperatura e umidade.
+    publishData(); //Função enviada para os dados lidos para o MQTT
   }
 }
