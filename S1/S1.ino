@@ -1,15 +1,15 @@
 #include <WiFi.h>
 #include <PubSubClient.h>
-#include <WiFiClientSecure.h>
+#include <WiFiClientSecure.h> // Essencial para comunicação segura (TLS)
 #include "env.h"
 #include <DHT.h>
 
-// Definições de Pinos
-#define pinLDR 34       // LDR (Luminosidade)
+// --- Definições de Pinos (Estação S1) ---
+#define pinLDR 34       // LDR (Luminosidade) - Leitura Analógica (ADC1)
 #define pinDHT 4        // Pino digital para o sensor DHT11
 #define DHTTYPE DHT11   // Tipo de sensor: DHT11
 
-#define led 19          // LED de Iluminação
+#define ledPin 19       // LED de Iluminação
 #define TRIGGER_PIN 22  // Pino Trigger do Ultrassônico
 #define ECHO_PIN 23     // Pino Echo do Ultrassônico
 
@@ -17,57 +17,96 @@
 #define LED_RGB_G 26    // LED RGB - Green
 #define LED_RGB_B 25    // LED RGB - Blue
 
-// Variáveis de Limites (se não usadas, podem ser removidas)
-const float LIMITAR_TEMPERATURA = 28.0; // Acima de 28.0°C é considerado "Quente"
-const float LIMITAR_UMIDADE = 60.0;     // Acima de 60.0% é considerado "Úmido"
 
-// Objetos
+
+String currentColor = "NONE"; 
+
+// Variáveis de Limites (Usadas para definir a cor de status do LED RGB)
+const float LIMITAR_TEMPERATURA = 28.0; // Acima de 28.0°C é "Quente"
+const float LIMITAR_UMIDADE = 60.0;     // Acima de 60.0% é "Úmido"
+
+
 DHT dht(pinDHT, DHTTYPE);
-WiFiClientSecure wifi_client;
-PubSubClient mqtt(wifi_client);
+WiFiClient espClient;
+
+PubSubClient client(espClient);
 
 
+void callback(char* topic, byte* payload, unsigned int length);
+void setRgbColor(int r, int g, int b);
+long lerDistancia();
 
 // Função para ler a distância (Ultrassônico)
 long lerDistancia() {
-  // Envia pulso de trigger
+  
   digitalWrite(TRIGGER_PIN, LOW);
   delayMicroseconds(2);
   digitalWrite(TRIGGER_PIN, HIGH);
   delayMicroseconds(10);
   digitalWrite(TRIGGER_PIN, LOW);
 
-  // Lê a duração do pulso de echo
+
   long duracao = pulseIn(ECHO_PIN, HIGH);
-  // Converte a duração para distância em cm (usando 343.2 m/s, convertido para cm/µs)
-  long distancia = duracao * 0.03432 / 2; // 0.03432 cm/µs é a velocidade do som
+  
+  long distancia = duracao * 0.03432 / 2; 
 
   return distancia;
+}
+
+// --- Função para controlar o LED RGB 
+void setRgbColor(int r, int g, int b) {
+  
+  digitalWrite(LED_RGB_R, !r); 
+  digitalWrite(LED_RGB_G, !g);
+  digitalWrite(LED_RGB_B, !b);
+  
+  
+  if (r == 1 && g == 0 && b == 0) currentColor = "RED";
+  else if (r == 0 && g == 1 && b == 0) currentColor = "GREEN";
+  else if (r == 0 && g == 0 && b == 1) currentColor = "BLUE";
+  else currentColor = "NONE";
+}
+
+
+void callback(char* topic, byte* payload, unsigned int length) { 
+  String MensagemRecebida = "";
+
+  for (int i = 0; i < length; i++) {  
+    MensagemRecebida += (char)payload[i];
+  }
+  Serial.print("Mensagem recebida no tópico [");
+  Serial.print(topic);
+  Serial.print("]: ");
+  Serial.println(MensagemRecebida);  
+
+  
+  if (strcmp(topic, TOPIC_LUMI_1) == 0 && MensagemRecebida == "LIGAR_LUZ_EXTERNA") {
+    digitalWrite(ledPin, HIGH);
+  } else if (strcmp(topic, TOPIC_LUMI_1) == 0 && MensagemRecebida == "DESLIGAR_LUZ_EXTERNA") {
+    digitalWrite(ledPin, LOW);
+  }
 }
 
 void setup() {
   Serial.begin(115200);
 
-  // Inicialização do WiFiClientSecure (para broker com TLS)
+  
   wifi_client.setInsecure();
 
-  // Configuração dos Pinos
-  dht.begin();
-  pinMode(led, OUTPUT);
+  // --- Configuração dos Pinos ---
+  dht.begin(); // Inicializa o sensor DHT
+  pinMode(ledPin, OUTPUT);
   pinMode(TRIGGER_PIN, OUTPUT);
   pinMode(ECHO_PIN, INPUT);
-
-  // Configuração dos Pinos do LED RGB
   pinMode(LED_RGB_R, OUTPUT);
   pinMode(LED_RGB_G, OUTPUT);
   pinMode(LED_RGB_B, OUTPUT);
   
-  // Desliga o LED RGB inicialmente
-  digitalWrite(LED_RGB_R, HIGH); // Assumindo LED RGB é Anodo Comum (HIGH=OFF)
-  digitalWrite(LED_RGB_G, HIGH);
-  digitalWrite(LED_RGB_B, HIGH);
+  // Desliga os LEDs inicialmente (Anodo Comum = HIGH)
+  digitalWrite(ledPin, LOW); 
+  setRgbColor(0, 0, 0); // Desliga o RGB
 
-  // Conexão WiFi
+  // --- Conexão Wi-Fi ---
   WiFi.begin(WIFI_SSID, WIFI_PASS);
   Serial.println("Conectando no WiFi");
   while (WiFi.status() != WL_CONNECTED) {
@@ -76,7 +115,7 @@ void setup() {
   }
   Serial.println("\nConectado com sucesso!");
 
-  // Conexão MQTT
+  // --- Conexão MQTT ---
   mqtt.setServer(BROKER_URL, BROKER_PORT);
   String clientID = "S1-";
   clientID += String(random(0xffff), HEX);
@@ -88,51 +127,68 @@ void setup() {
   }
   Serial.println("\nConectado ao broker!");
 
-  // Subscrição a Tópicos (Ajustar conforme o que S1 deve receber)
-  // Assumi que S1 não precisa subscrever a seus próprios tópicos de dados de sensor
-  // Se S1 recebe comandos, eles devem ser subscritos aqui.
-  // mqtt.subscribe(TOPIC_COMANDO_S1);
+  
+  mqtt.subscribe(TOPIC_PRESENCE_1); 
+  .
+  
+  mqtt.setCallback(callback);
 }
-
-// Função para controlar o LED RGB (Anodo Comum)
-void setRgbColor(int r, int g, int b) {
-  digitalWrite(LED_RGB_R, !r); // !r, !g, !b para Anodo Comum
-  digitalWrite(LED_RGB_G, !g);
-  digitalWrite(LED_RGB_B, !b);
-}
-
 
 void loop() {
-  mqtt.loop();
+  
+  if (!mqtt.connected()) {
+    
+    Serial.println("Tentando reconectar ao MQTT...");
+    String clientID = "S1-";
+    clientID += String(random(0xffff), HEX);
+    if (mqtt.connect(clientID.c_str(), BROKER_USR_ID, BROKER_USR_PASS)) {
+      Serial.println("Reconectado!");
+      // Resubscribe nos tópicos
+      mqtt.subscribe(TOPIC_PRESENCE_1);
+    } else {
+      delay(5000); 
+    }
+  }
 
-  // --- Leitura e Publicação de Luminosidade (LDR) ---
+  mqtt.loop();
+  
+ 
+
+  // 1. Luminosidade (LDR) e Controle do LED de Iluminação
   int luz_analog = analogRead(pinLDR);
-  int luz_percent = map(luz_analog, 0, 4095, 0, 100); // 4095 é o máximo para o ADC do ESP32 (12-bit)
+  int luz_percent = map(luz_analog, 0, 4095, 0, 100); 
   
   if (luz_percent > 50) {
     mqtt.publish(TOPIC_LUMI_1, "Claro");
-    digitalWrite(led, LOW); // Desliga o LED de iluminação se estiver claro (LOW se for Active-LOW/Anodo Comum)
-    setRgbColor(0, 1, 0); // Verde (indicador de "Claro")
+    digitalWrite(ledPin, LOW); // Desliga a luz
   } else {
     mqtt.publish(TOPIC_LUMI_1, "Escuro");
-    digitalWrite(led, HIGH); // Liga o LED de iluminação se estiver escuro (HIGH se for Active-HIGH/Catodo Comum)
-    setRgbColor(0, 0, 1); // Azul (indicador de "Escuro")
+    digitalWrite(ledPin, HIGH); // Liga a luz
   }
 
   delay(500);
   mqtt.loop();
 
-  // --- Leitura e Publicação de Temperatura (DHT) ---
+  
   float t = dht.readTemperature();
   if (!isnan(t)) {
     String tempString = String(t, 1);
     mqtt.publish(TOPIC_TEMP_1, tempString.c_str());
+
+    // Lógica para o LED RGB baseada na TEMPERATURA
+    if (t > LIMITAR_TEMPERATURA) {
+      setRgbColor(1, 0, 0); // Vermelho: Quente
+    } else if (t < 20.0) {
+      setRgbColor(0, 0, 1); // Azul: Frio (Abaixo de 20°C)
+    } else {
+      setRgbColor(0, 1, 0); // Verde: Normal
+    }
   }
 
   delay(500);
   mqtt.loop();
 
-  // --- Leitura e Publicação de Umidade (DHT) ---
+  // 3. Umidade (DHT)
   float h = dht.readHumidity();
   if (!isnan(h)) {
     String umidString = String(h, 1);
@@ -142,16 +198,15 @@ void loop() {
   delay(500);
   mqtt.loop();
 
-  // --- Leitura e Publicação de Presença (Ultrassônico) ---
+  // 4. Presença (Ultrassônico)
   long distancia = lerDistancia();
 
-  if (distancia > 0 && distancia < 50) { // Considera presença se a distância for menor que 50 cm
+  if (distancia > 0 && distancia < 50) { 
     mqtt.publish(TOPIC_PRESENCE_1, "Presente");
-    // Você pode adicionar uma cor de LED RGB para presença aqui, por exemplo, Vermelho
-    // setRgbColor(1, 0, 0); 
+   
   } else {
     mqtt.publish(TOPIC_PRESENCE_1, "Ausente");
   }
 
-  delay(500); // Espera 500ms entre as leituras/publicações para o ciclo completo
+  delay(500); 
 }
