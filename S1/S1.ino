@@ -27,9 +27,9 @@ const float LIMITAR_UMIDADE = 60.0;     // Acima de 60.0% é "Úmido"
 
 
 DHT dht(pinDHT, DHTTYPE);
-WiFiClient espClient;
+WiFiClientSecure wifi_client;
 
-PubSubClient client(espClient);
+PubSubClient mqtt(wifi_client);
 
 
 void callback(char* topic, byte* payload, unsigned int length);
