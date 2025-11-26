@@ -12,15 +12,15 @@ const byte dir2 = 25;
 
 // Pinos LED RGB
 const byte vermelhinho = 5;
-const byte verdinho    = 18;
-const byte azulzinho   = 19;
+const byte verdinho = 18;
+const byte azulzinho = 19;
 
 // Configuração dos PWMs do LED
 const uint8_t CH_R = 0;
 const uint8_t CH_G = 1;
 const uint8_t CH_B = 2;
 const uint32_t PWM_FREQ = 5000;
-const uint8_t PWM_RES  = 8;
+const uint8_t PWM_RES = 8;
 
 // Declaração das funções:
 void statusLED(byte status);
@@ -86,7 +86,7 @@ void callback(char* topic, byte* payload, unsigned int length) {
 
   // Só responde se o tópico for o certo:
   if (strcmp(topic, "in/S4") == 0) {
-    if (!msg.startsWith("speed")) return;
+    if (!msg.startsWith("speed")) return; 
     int valor = msg.substring(6).toInt();
 
     Serial.print("Velocidade recebida: ");
