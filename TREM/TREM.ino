@@ -22,37 +22,37 @@ const uint8_t CH_B = 2;
 const uint32_t PWM_FREQ = 5000;
 const uint8_t PWM_RES  = 8;
 
-// Declaração das funções - boas práticas:
+// Declaração das funções:
 void statusLED(byte status);
 void turnOffLEDs();
 void setLEDColor(byte r, byte g, byte b);
 void callback(char* topic, byte* payload, unsigned int length);
 void connectToWifi();
 void connectToMQTT();
-void reconnectMQTT(); // nova função — reconecta infinitamente
+void reconnectMQTT(); 
 
 void statusLED(byte status) {
   // Desliga primeiro:
   turnOffLEDs();
 
   switch (status) {
-    case 254:  // Erro geral — deixa vermelho
+    case 254:  // Vermelho
       setLEDColor(255, 0, 0);
       break;
 
-    case 1:  // Conectando ao Wi-Fi — amarelinho
+    case 1:  // Amarelo
       setLEDColor(150, 255, 0);
       break;
 
-    case 2:  // Conectando ao MQTT — rosinha
+    case 2:  // Rosa
       setLEDColor(150, 0, 255);
       break;
 
-    case 3:  // Indo pra frente — verde
+    case 3:  // Verde
       setLEDColor(0, 255, 0);
       break;
 
-    case 4:  // Indo pra trás — ciano
+    case 4:  // Ciano
       setLEDColor(0, 255, 255);
       break;
 
@@ -135,7 +135,7 @@ void connectToWifi() {
   statusLED(0);
 }
 
-// Função para conectar ao Wifi:
+// Função para conectar ao Broker:
 void connectToMQTT() {
   statusLED(2);  
   delay(500);
@@ -163,7 +163,7 @@ void connectToMQTT() {
   }
 }
 
-// Função para reconectar com o broker:
+// Função para reconectar com o Broker:
 void reconnectMQTT() {
   Serial.println("MQTT desconectado, tentando de novo...");
   
@@ -185,7 +185,6 @@ void reconnectMQTT() {
   }
 }
 
-// -------------------------
 void setup() {
   Serial.begin(115200);
   randomSeed(analogRead(0));
@@ -209,13 +208,13 @@ void setup() {
 }
 
 void loop() {
-  // Se falhar, reconecta
+  // Se falhar, reconecta:
   if (WiFi.status() != WL_CONNECTED) {
     Serial.println("Wi-Fi caiu, reconectando...");
     connectToWifi();
   }
 
-  // Se falhar, reconecta
+  // Se falhar, reconecta:
   if (!mqtt.connected()) {
     reconnectMQTT();
   }
