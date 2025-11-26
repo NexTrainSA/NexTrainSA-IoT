@@ -55,10 +55,7 @@ void statusLED(byte status) {
     case 4:  // Ciano
       setLEDColor(0, 255, 255);
       break;
-
-    case 0:  
-      break;
-
+    
     default:  
       for (byte i = 0; i < 4; i++) {
         setLEDColor(0, 0, 255);
@@ -111,7 +108,7 @@ void callback(char* topic, byte* payload, unsigned int length) {
     } else {
       digitalWrite(dir1, LOW);
       digitalWrite(dir2, LOW);
-      statusLED(0);
+      turnOffLEDs();
     }
   }
 }
@@ -132,7 +129,7 @@ void connectToWifi() {
   }
 
   Serial.println("\nWi-Fi conectado!");
-  statusLED(0);
+  statusLED(3);
 }
 
 // Função para conectar ao Broker:
@@ -152,7 +149,7 @@ void connectToMQTT() {
     if (mqtt.connect(clientID.c_str())) {
       Serial.println("Conectado ao Broker!");
       mqtt.subscribe(TOPIC_SPEED);
-      statusLED(0);
+      statusLED(3);
       break;
 
     } else {
@@ -174,7 +171,7 @@ void reconnectMQTT() {
     if (mqtt.connect(clientID.c_str())) {
       Serial.println("Reconectado ao Broker!");
       mqtt.subscribe(TOPIC_SPEED);
-      statusLED(0);
+      statusLED(3);
       break;
 
     } else {
