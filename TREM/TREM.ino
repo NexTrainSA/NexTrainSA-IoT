@@ -72,7 +72,7 @@ void turnOffLEDs() {
 }
 
 void setLEDColor(byte r, byte g, byte b) {
-  // Valores PWM vão direto pros canais
+  // Valores PWM:
   ledcWrite(CH_R, r);
   ledcWrite(CH_G, g);
   ledcWrite(CH_B, b);
@@ -84,7 +84,7 @@ void callback(char* topic, byte* payload, unsigned int length) {
 
   String msg((char*)payload, length);
 
-  // Só responde se o tópico for o certo:
+  // Verifica o tópico:
   if (strcmp(topic, "in/S4") == 0) {
     if (!msg.startsWith("speed")) return; 
     int valor = msg.substring(6).toInt();
@@ -115,7 +115,7 @@ void callback(char* topic, byte* payload, unsigned int length) {
 
 // Função para conectar Wi-Fi:
 void connectToWifi() {
-  statusLED(1);  // mostrando que está tentando Wi-Fi
+  statusLED(1); 
   delay(500);
 
   WiFi.begin(WIFI_SSID, WIFI_PASS);
@@ -123,7 +123,7 @@ void connectToWifi() {
 
   // Loop infinito até conectar
   while (WiFi.status() != WL_CONNECTED) {
-    Serial.println("Ainda tentando conectar ao Wi-Fi...");
+    Serial.println("Aguarde...");
     statusLED(1);
     delay(500);
   }
@@ -154,7 +154,7 @@ void connectToMQTT() {
 
     } else {
       Serial.println("Falha ao conectar no MQTT. Tentando de novo...");
-      statusLED(254); // LED vermelho indicando problema
+      statusLED(254);
       delay(2000);
     }
   }
@@ -184,7 +184,7 @@ void reconnectMQTT() {
 
 void setup() {
   Serial.begin(115200);
-  randomSeed(analogRead(0));
+  randomSeed(analogRead(0)); // Importante para gerar um clientID novo e evitar dupliacações 
   wifiClient.setInsecure(); 
   
   pinMode(dir1, OUTPUT);
