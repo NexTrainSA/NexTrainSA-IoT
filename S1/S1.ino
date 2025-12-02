@@ -1,20 +1,21 @@
+
+//Inclusão das bibliotecas necessárias
 #include <WiFi.h>
 #include <PubSubClient.h>
 #include <DHT.h>
 #include <ArduinoJson.h>
 #include "env.h"
-
-// WiFi credentials
+//Configurações de rede e mqtt 
 const char* ssid = "Wokwi-GUEST";
 const char* password = "";
 
-// MQTT Broker
+// MQTT 
 const char* mqtt_server = "179.222.224.26"; // Change to your MQTT broker
 const int mqtt_port = 6883;
 const char* mqtt_topic_out = "out/S1";
 const char* mqtt_topic_in = "input/S1";
 
-// Pin definitions
+// Definições dos pinos necessários DHT, DHT22, Fotoresistor(LDR), Pino digital, LED e LED RGB
 #define DHT_PIN 4
 #define LDR_PIN 34
 #define PIR_PIN 5
@@ -23,7 +24,7 @@ const char* mqtt_topic_in = "input/S1";
 #define LED_G_PIN 26
 #define LED_B_PIN 27
 
-// DHT sensor
+// DHT configurações do sensor
 #define DHTTYPE DHT22
 DHT dht(DHT_PIN, DHTTYPE);
 
@@ -31,16 +32,20 @@ DHT dht(DHT_PIN, DHTTYPE);
 WiFiClient espClient;
 PubSubClient client(espClient);
 
-// Variables
-float temperature = 0;
-float humidity = 0;
-int luminosity = 0;
-int presence = 0;
-bool ledState = false;
-String ledRgbState = "Desligado";
+// Variaveis de estado
+float temperature = 0; //variavel armazenar temperatura
+float humidity = 0; //umidade 
+int luminosity = 0; //luminosidade
+int presence = 0; //estado de presença
+bool ledState = false; //estado do LED (ligado, desligado)
+String ledRgbState = "Desligado"; //estado descritivo RGB
+
+//variaveis para controlar o tempo (temporização)
 
 unsigned long lastMsg = 0;
-const long interval = 2000; // Send data every 2 seconds
+const long interval = 2000; // 2 segundos para envio de dados
+
+//Função setup_wifi() tem o propósito de conectar o ESP32 à rede wifi
 
 void setup_wifi() {
   delay(10);
@@ -50,16 +55,19 @@ void setup_wifi() {
 
   WiFi.begin(ssid, password);
 
+  //Aguarda a conexão ser estabelecida, exibe pontos de pogresso. 
   while (WiFi.status() != WL_CONNECTED) {
     delay(500);
     Serial.print(".");
   }
-
+  //Conexão bem-sucedida 
   Serial.println("");
   Serial.println("WiFi connected");
   Serial.println("IP address: ");
   Serial.println(WiFi.localIP());
 }
+
+//Função callback com o propósito de processar as mensagens recebidas do broker MQTT
 
 void callback(char* topic, byte* payload, unsigned int length) {
   String message = "";
@@ -72,17 +80,20 @@ void callback(char* topic, byte* payload, unsigned int length) {
   Serial.print("] ");
   Serial.println(message);
 
+  //Comando é recebido para testar a conectividade (ping/pong)
+
     if(message == "ping") {
-      client.publish(mqtt_topic_out, "pong");
+      client.publish(mqtt_topic_out, "pong"); //publica a resposta "pong"
     }
-    
+    //verifica o comando pra ligar/desligar 
     if (message == "TOGGLE_LED") {
-      ledState = !ledState;
+      ledState = !ledState; //inverte o estado atual do LED 
       digitalWrite(LED_PIN, ledState ? HIGH : LOW);
       
-      // Toggle RGB LED status
+      // Alterna o status do LED RGB
       if (ledState) {
         ledRgbState = "Ligado";
+        //Liga o LED RGB
         digitalWrite(LED_R_PIN, HIGH);
         digitalWrite(LED_G_PIN, HIGH);
         digitalWrite(LED_B_PIN, HIGH);
@@ -95,16 +106,21 @@ void callback(char* topic, byte* payload, unsigned int length) {
   }
 }
 
+//Função reconnect () com propósito que tentar reconectar o broker MQTT se caso a conexão cair. 
+
 void reconnect() {
   while (!client.connected()) {
     Serial.print("Attempting MQTT connection...");
     String clientId = "ESP32_S1_";
+    // Cria um ID de cliente único
     clientId += String(random(0xffff), HEX);
     
+    // Tenta conectar, usando o ID do cliente
     if (client.connect(clientId.c_str(), "nextrain", "nextrain")) {
       Serial.println("connected");
       client.subscribe(mqtt_topic_in);
     } else {
+      // Loga o erro e tenta novamente em 5 segundos.
       Serial.print("failed, rc=");
       Serial.print(client.state());
       Serial.println(" try again in 5 seconds");
@@ -113,19 +129,20 @@ void reconnect() {
   }
 }
 
+//Função readSensors() com o objetivo de ler o valor atual de todos os sensores. 
 void readSensors() {
-  // Read DHT22
+  // Lê o sensor DHT22.
   temperature = dht.readTemperature();
   humidity = dht.readHumidity();
   
-  // Read LDR (photoresistor)
+  // Lê o LDR (fotoresistor).
   int ldrValue = analogRead(LDR_PIN);
   luminosity = map(ldrValue, 0, 4095, 0, 1000); // Convert to lux approximation
   
-  // Read PIR
+  // Lê o sensor PIR (presença). Retorna HIGH (1) ou LOW (0).
   presence = digitalRead(PIR_PIN);
   
-  // Check for DHT errors
+  // Verifica se houve erro na leitura do DHT.
   if (isnan(temperature) || isnan(humidity)) {
     Serial.println("Failed to read from DHT sensor!");
     temperature = 0;
@@ -133,9 +150,11 @@ void readSensors() {
   }
 }
 
+//Função publishData() com o propósito de formatar os dados em JSON e publica no tópico MQTT 
 void publishData() {
+  //Cria um documento JSON estático com capacidade máxima de 300 bytes 
   StaticJsonDocument<300> doc;
-  
+  // Popula o documento JSON com os dados dos sensores e o estado do LED.
   doc["TEMPERATURE"] = String(temperature, 1);
   doc["HUMIDITY"] = String(humidity, 1);
   doc["LUMINOSITY"] = String(luminosity);
@@ -144,18 +163,20 @@ void publishData() {
   doc["LED_RGB"] = ledRgbState;
   
   char jsonBuffer[300];
+  // converte o objeto JSON para uma string de caracteres.
   serializeJson(doc, jsonBuffer);
-  
+  // Publica a string JSON no tópico de saída.
   client.publish(mqtt_topic_out, jsonBuffer);
   
   Serial.println("Published data:");
   Serial.println(jsonBuffer);
 }
 
+//Função setup() propósito das configurações iniciais, execurta uma única vez ao ligar o ESP32
 void setup() {
-  Serial.begin(115200);
+  Serial.begin(115200); //Inicia a comunicação serial para debug 
   
-  // Initialize pins
+  // Inicia os pinos de OUTPUT/INPUT 
   pinMode(LED_PIN, OUTPUT);
   pinMode(LED_R_PIN, OUTPUT);
   pinMode(LED_G_PIN, OUTPUT);
@@ -163,36 +184,38 @@ void setup() {
   pinMode(PIR_PIN, INPUT);
   pinMode(LDR_PIN, INPUT);
   
-  // Turn off all LEDs initially
+  // Desliga todos os LEDs no início
   digitalWrite(LED_PIN, LOW);
   digitalWrite(LED_R_PIN, LOW);
   digitalWrite(LED_G_PIN, LOW);
   digitalWrite(LED_B_PIN, LOW);
   
-  // Initialize DHT sensor
+  // Inicializa o sensor DHT
   dht.begin();
   
-  // Connect to WiFi
+  // Conecta ao WiFi
   setup_wifi();
   
-  // Configure MQTT
+  // Configura o MQTT
   client.setServer(mqtt_server, mqtt_port);
   client.setCallback(callback);
   
   Serial.println("S1 Station initialized!");
 }
 
+//Função loop contém uma lógica principal executada repetidamente e de forma rápida. 
 void loop() {
+  //verifica a conexão MQTT e tenta reconectar se necessário
   if (!client.connected()) {
     reconnect();
   }
   client.loop();
-  
+  // Lógica de temporização para envio de dados
   unsigned long now = millis();
   if (now - lastMsg > interval) {
-    lastMsg = now;
+    lastMsg = now;// Atualiza o último momento em que a mensagem foi enviada.
     
-    readSensors();
-    publishData();
+    readSensors();// Lê os sensores.
+    publishData();// Publica os dados via MQTT.
   }
 }
