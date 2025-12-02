@@ -1,12 +1,12 @@
 
 //Inclusão das bibliotecas necessárias
 #include <WiFi.h>
-#include <PubSubClient.h>
-#include <DHT.h>
-#include <ArduinoJson.h>
+#include <PubSubClient.h>//para a conexão com o MQTT 
+#include <DHT.h> //para leitura do sensor de temperatura e umidade
+#include <ArduinoJson.h> //para formatar os dados dos sensores em JSON facilitando a troca das informações
 #include "env.h"
 //Configurações de rede e mqtt 
-const char* ssid = "Wokwi-GUEST";
+const char* ssid = "Wokwi-GUEST"; //CREDENCIAIS DE CONEXÃO
 const char* password = "";
 
 // MQTT 
@@ -16,13 +16,13 @@ const char* mqtt_topic_out = "out/S1";
 const char* mqtt_topic_in = "input/S1";
 
 // Definições dos pinos necessários DHT, DHT22, Fotoresistor(LDR), Pino digital, LED e LED RGB
-#define DHT_PIN 4
-#define LDR_PIN 34
-#define PIR_PIN 5
-#define LED_PIN 2
-#define LED_R_PIN 25
-#define LED_G_PIN 26
-#define LED_B_PIN 27
+#define DHT_PIN 4 //temp/umid 
+#define LDR_PIN 34 //luminos
+#define PIR_PIN 5 //presença
+#define LED_PIN 2 //LED simples
+#define LED_R_PIN 25//r
+#define LED_G_PIN 26//g
+#define LED_B_PIN 27//b
 
 // DHT configurações do sensor
 #define DHTTYPE DHT22
@@ -67,7 +67,7 @@ void setup_wifi() {
   Serial.println(WiFi.localIP());
 }
 
-//Função callback com o propósito de processar as mensagens recebidas do broker MQTT
+//Função callback com o propósito de processar as mensagens recebidas do broker MQTT. Lida com as mensagens recebidas. Ela é chamada quando uma mensagem chega ao tópico assinado (mqtt_topic_in)
 
 void callback(char* topic, byte* payload, unsigned int length) {
   String message = "";
@@ -106,7 +106,7 @@ void callback(char* topic, byte* payload, unsigned int length) {
   }
 }
 
-//Função reconnect () com propósito que tentar reconectar o broker MQTT se caso a conexão cair. 
+//Função reconnect () com propósito que tentar reconectar o broker MQTT se caso a conexão cair. Manter a conexão continua ao brokerMQTT 
 
 void reconnect() {
   while (!client.connected()) {
@@ -129,7 +129,7 @@ void reconnect() {
   }
 }
 
-//Função readSensors() com o objetivo de ler o valor atual de todos os sensores. 
+//Função readSensors() com o objetivo de ler o valor atual de todos os sensores. Obter os dados atuais dos sensores. 
 void readSensors() {
   // Lê o sensor DHT22.
   temperature = dht.readTemperature();
@@ -150,7 +150,7 @@ void readSensors() {
   }
 }
 
-//Função publishData() com o propósito de formatar os dados em JSON e publica no tópico MQTT 
+//Função publishData() com o propósito de formatar os dados em JSON e publica no tópico MQTT. Enviar dados ao Broker. 
 void publishData() {
   //Cria um documento JSON estático com capacidade máxima de 300 bytes 
   StaticJsonDocument<300> doc;
@@ -203,7 +203,7 @@ void setup() {
   Serial.println("S1 Station initialized!");
 }
 
-//Função loop contém uma lógica principal executada repetidamente e de forma rápida. 
+//Função loop contém uma lógica principal executada repetidamente e de forma rápida. Verifica se  MQTT esta conectado se nao tiver chama o reconnect. client loop para manter conexão MQTT. 
 void loop() {
   //verifica a conexão MQTT e tenta reconectar se necessário
   if (!client.connected()) {
